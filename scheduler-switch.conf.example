@@ -1,0 +1,17 @@
+# /etc/icecc/scheduler-switch.conf
+#
+# Each line: <scheduler> <condition>
+# The first rule whose condition holds wins.
+# If no rule matches, or this file is missing, iceccd uses broadcast.
+#
+# <scheduler>  "broadcast", or a host/IP to pass as --scheduler-host
+# <condition>  subnet CIDR            this machine has an IPv4 address inside CIDR
+#              reachable              the scheduler answers on port 8765 (2s timeout)
+#              reachable HOST[:PORT]  some other host answers
+#              always                 always matches
+
+# Office LAN: the scheduler announces itself by broadcast
+broadcast    subnet 10.1.0.0/24
+
+# Anywhere else: use the scheduler's VPN address if it answers
+10.8.0.5     reachable

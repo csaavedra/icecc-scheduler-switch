@@ -1,18 +1,22 @@
 # icecc-scheduler-switch
 
-Makes `iceccd` follow the laptop between the office LAN and home.
+Makes `iceccd` follow a laptop between networks.
 
-At the office the icecc scheduler (`csaavedra-gtk-ews`) is found by broadcast.
-From home it is only reachable through its home-VPN address (`172.16.42.4`),
-where broadcast does not work. These files pick the right mode automatically
-and restart `iceccd` when the network changes.
+`iceccd` finds its scheduler by broadcast unless it is given a host, and
+broadcast does not cross VPNs or routed subnets. This picks the scheduler
+host from a small set of rules (for example: broadcast on the office LAN,
+the scheduler's VPN address elsewhere) and restarts `iceccd` when the
+network changes and the answer differs.
 
 ## How it works
 
-- `icecc-pick-scheduler` decides the scheduler host:
-  on the office subnet (`192.168.9.0/24`) it leaves it empty (broadcast);
-  elsewhere it uses `172.16.42.4` if that host answers on port 8765;
-  otherwise it leaves it empty. The result goes to `/run/iceccd-scheduler.env`.
+- `/etc/icecc/scheduler-switch.conf` lists rules, one per line, as
+  `<scheduler> <condition>`. The first rule that holds wins; with no match
+  `iceccd` uses broadcast. Conditions are `subnet CIDR`, `reachable`
+  (the scheduler answers on port 8765), `reachable HOST[:PORT]` and
+  `always`. See `scheduler-switch.conf.example`.
+- `icecc-pick-scheduler` evaluates the rules and writes the result to
+  `/run/iceccd-scheduler.env`.
 - `iceccd-scheduler.conf` is a systemd drop-in that runs the picker before
   `iceccd` starts and feeds it the env file.
 - `90-iceccd` is a NetworkManager dispatcher hook that re-runs the picker on
@@ -24,10 +28,14 @@ Debian/Ubuntu `icecc` package with NetworkManager:
 
 ```
 sudo ./install.sh
+sudoedit /etc/icecc/scheduler-switch.conf
+sudo systemctl restart iceccd
 ```
 
-The script also comments out any `ICECC_SCHEDULER_HOST=` line in
-`/etc/icecc/icecc.conf`, since that would override the picker.
+The script installs the example rules only if
+`/etc/icecc/scheduler-switch.conf` does not exist yet. It also comments out
+any `ICECC_SCHEDULER_HOST=` line in `/etc/icecc/icecc.conf`, since that
+would override the picker.
 
 ## Check
 
@@ -36,3 +44,5 @@ cat /run/iceccd-scheduler.env
 ps -o args= -p "$(systemctl show -p MainPID --value iceccd.service)"
 sudo journalctl -t icecc-pick-scheduler
 ```
+
+The journal shows each decision and the rule that made it.
