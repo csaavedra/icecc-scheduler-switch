@@ -46,3 +46,7 @@ sudo journalctl -t icecc-pick-scheduler
 ```
 
 The journal shows each decision and the rule that made it.
+
+## License
+
+MIT, see `LICENSE`.

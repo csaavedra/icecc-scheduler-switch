@@ -1,4 +1,6 @@
 #!/bin/sh
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 Igalia S.L.
 # Run with sudo from this directory.
 set -e
 # The picker only wins if icecc.conf does not set the host itself,
