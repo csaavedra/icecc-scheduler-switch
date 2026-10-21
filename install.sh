@@ -10,6 +10,6 @@ install -m 644 iceccd-scheduler.conf /etc/systemd/system/iceccd.service.d/schedu
 install -m 755 90-iceccd /etc/NetworkManager/dispatcher.d/90-iceccd
 systemctl daemon-reload
 systemctl restart iceccd.service
-echo "--- icecc.conf scheduler lines:"; grep -n 'ICECC_SCHEDULER_HOST=' /etc/icecc/icecc.conf
+echo "--- icecc.conf scheduler lines:"; grep -n 'ICECC_SCHEDULER_HOST=' /etc/icecc/icecc.conf || echo "(none)"
 echo "--- env file:"; cat /run/iceccd-scheduler.env
 echo "--- daemon cmdline:"; ps -o args= -p "$(systemctl show -p MainPID --value iceccd.service)" | grep -o -- "--scheduler-host [^ ]*" || echo "(no --scheduler-host: broadcast mode)"
