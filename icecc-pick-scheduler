@@ -1,0 +1,48 @@
+#!/bin/bash
+# Decide which scheduler host iceccd should use, based on where we are.
+#
+#  - Office LAN (192.168.9.0/24): the scheduler announces itself by broadcast,
+#    so leave ICECC_SCHEDULER_HOST empty (same behaviour as before).
+#  - Anywhere else (home router VPN, OpenVPN, ...): if the scheduler's VPN
+#    address answers on the scheduler port, point iceccd at it explicitly.
+#  - Otherwise leave it empty and let iceccd keep trying broadcast.
+#
+# The result is written to an env file that the iceccd.service drop-in reads.
+# Invoked by:
+#   - iceccd.service ExecStartPre (plain call, always exits 0)
+#   - NetworkManager dispatcher with --restart-if-changed
+set -u
+
+VPN_HOST=172.16.42.4          # csaavedra-gtk-ews as seen through the VPN
+SCHEDULER_PORT=8765
+OFFICE_PREFIX='192.168.9.'    # office LAN, where broadcast discovery works
+ENVFILE=/run/iceccd-scheduler.env
+
+on_office_lan() {
+    ip -4 -o addr show scope global | grep -q " inet ${OFFICE_PREFIX}"
+}
+
+scheduler_reachable() {
+    timeout 2 bash -c "exec 3<>/dev/tcp/$1/$SCHEDULER_PORT" 2>/dev/null
+}
+
+new=""
+if ! on_office_lan && scheduler_reachable "$VPN_HOST"; then
+    new="$VPN_HOST"
+fi
+
+old=""
+[ -r "$ENVFILE" ] && old=$(sed -n 's/^ICECC_SCHEDULER_HOST=//p' "$ENVFILE")
+
+changed=0
+if [ ! -e "$ENVFILE" ] || [ "$new" != "$old" ]; then
+    printf 'ICECC_SCHEDULER_HOST=%s\n' "$new" > "$ENVFILE"
+    logger -t icecc-pick-scheduler "scheduler host set to '${new:-<broadcast>}'"
+    changed=1
+fi
+
+if [ "${1:-}" = "--restart-if-changed" ] && [ "$changed" = 1 ]; then
+    # try-restart: only restart if iceccd is actually running
+    systemctl --no-block try-restart iceccd.service
+fi
+exit 0

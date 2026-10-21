@@ -1,0 +1,10 @@
+#!/bin/sh
+# /etc/NetworkManager/dispatcher.d/90-iceccd
+# Re-evaluate the icecc scheduler host when connectivity changes and
+# restart iceccd only if the answer differs from what it was started with.
+#   $1 = interface, $2 = action
+case "$2" in
+    up|vpn-up|vpn-down|connectivity-change) ;;
+    *) exit 0 ;;
+esac
+exec /usr/local/sbin/icecc-pick-scheduler --restart-if-changed
