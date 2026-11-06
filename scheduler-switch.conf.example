@@ -6,7 +6,7 @@
 #
 # <scheduler>  "broadcast", or a host/IP to pass as --scheduler-host
 # <condition>  subnet CIDR            this machine has an IPv4 address inside CIDR
-#              reachable              the scheduler answers on port 8765 (2s timeout)
+#              reachable              the scheduler answers on port 8765 (retried for ~30 s)
 #              reachable HOST[:PORT]  some other host answers
 #              always                 always matches
 

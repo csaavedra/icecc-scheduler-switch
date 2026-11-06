@@ -13,12 +13,15 @@
 # Invoked by:
 #   - iceccd.service ExecStartPre (plain call, always exits 0)
 #   - NetworkManager dispatcher with --restart-if-changed
-# CONF and ENVFILE can be overridden from the environment for testing.
+# CONF, ENVFILE, PROBE_ATTEMPTS and PROBE_DELAY can be overridden from the
+# environment for testing.
 set -u
 
 CONF=${CONF:-/etc/icecc/scheduler-switch.conf}
 ENVFILE=${ENVFILE:-/run/iceccd-scheduler.env}
 SCHEDULER_PORT=8765
+PROBE_ATTEMPTS=${PROBE_ATTEMPTS:-6}   # reachability probes per rule
+PROBE_DELAY=${PROBE_DELAY:-5}         # seconds between failed probes
 TAG=icecc-pick-scheduler
 
 ip4_to_int() {
@@ -44,11 +47,23 @@ in_subnet() {
     return 1
 }
 
-# True if HOST[:PORT] accepts a TCP connection within 2 seconds.
+# True if HOST[:PORT] accepts a TCP connection. Each attempt waits up to
+# 2 seconds; a failed attempt is retried PROBE_ATTEMPTS times, PROBE_DELAY
+# seconds apart, because right after an interface comes up (resume, roaming)
+# a VPN or routed path can take a while to answer. Without a default route
+# there is nothing to wait for, so only one attempt is made.
 reachable() {
-    local host=${1%:*} port=$SCHEDULER_PORT
+    local host=${1%:*} port=$SCHEDULER_PORT attempts=$PROBE_ATTEMPTS i
     [[ $1 == *:* ]] && port=${1##*:}
-    timeout 2 bash -c 'exec 3<>"/dev/tcp/$0/$1"' "$host" "$port" 2>/dev/null
+    ip -4 route show default | grep -q . || attempts=1
+    for ((i = 1; i <= attempts; i++)); do
+        if timeout 2 bash -c 'exec 3<>"/dev/tcp/$0/$1"' "$host" "$port" 2>/dev/null; then
+            [ "$i" -gt 1 ] && logger -t "$TAG" "$host:$port answered on attempt $i"
+            return 0
+        fi
+        [ "$i" -lt "$attempts" ] && sleep "$PROBE_DELAY"
+    done
+    return 1
 }
 
 new=""

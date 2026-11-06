@@ -13,7 +13,9 @@ network changes and the answer differs.
 - `/etc/icecc/scheduler-switch.conf` lists rules, one per line, as
   `<scheduler> <condition>`. The first rule that holds wins; with no match
   `iceccd` uses broadcast. Conditions are `subnet CIDR`, `reachable`
-  (the scheduler answers on port 8765), `reachable HOST[:PORT]` and
+  (the scheduler answers on port 8765, retried for about 30 s so a path
+  that is still coming up after resume or roaming is not missed),
+  `reachable HOST[:PORT]` and
   `always`. See `scheduler-switch.conf.example`.
 - `icecc-pick-scheduler` evaluates the rules and writes the result to
   `/run/iceccd-scheduler.env`.
